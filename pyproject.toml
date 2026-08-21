@@ -1,0 +1,71 @@
+[project]
+name = "viatradetgbot"
+version = "0.1.0"
+description = "Telegram bot for ViaTrade"
+readme = "README.md"
+authors = [{ name = "igroman4ik-pc", email = "ni4000009@gmail.com" }]
+requires-python = ">=3.14.7"
+dependencies = [
+    "aiogram>=3.30,<4",
+    "httpx>=0.28,<1",
+    "pydantic-settings>=2.12,<3",
+    "redis>=7.2,<8",
+]
+
+[dependency-groups]
+dev = ["ruff>=0.16.3"]
+
+[project.scripts]
+viatradetgbot = "viatradetgbot:main"
+
+[build-system]
+requires = ["uv_build>=0.12.3,<0.13.0"]
+build-backend = "uv_build"
+
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+extend-exclude = [".agent", ".agents", ".ai-factory"]
+force-exclude = true
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "ANN", # flake8-annotations — принуждает писать аннотации практически везде; лучше вводить постепенно
+    "D",   # pydocstyle — требует docstring; для внутреннего приложения избыточно
+    "EM",  # flake8-errmsg — требования к формату сообщений исключений; мало пользы на старте
+    "FIX", # flake8-fixme — TODO/FIXME не являются ошибками кода
+    "TD",  # flake8-todos — требования к оформлению TODO; излишняя бюрократия
+    "CPY", # copyright — проверка наличия copyright-заголовков; для приложения не нужна
+    "PGH", # pygrep-hooks — дополнительные проверки комментариев/type-ignore; можно подключить позже
+
+    # formatter сам управляет
+    "COM812",
+    "COM819",
+
+    "W191",
+    "E111",
+    "E114",
+    "E117",
+
+    "D203",
+    "D206",
+    "D300",
+
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "Q004",
+
+    # Russian user-facing messages and runtime imports used by Pydantic/aiogram.
+    "RUF001",
+    "TC001",
+    "TC002",
+    "TC003",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "tab"
