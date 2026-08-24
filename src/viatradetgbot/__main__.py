@@ -13,7 +13,8 @@ from viatradetgbot.logging_config import configure_logging
 
 async def run_app(settings: Settings) -> None:
 	async with App(settings) as app:
-		await app.run()
+		with suppress(KeyboardInterrupt):
+			await app.run()
 
 
 def main() -> None:
@@ -29,5 +30,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-	with suppress(KeyboardInterrupt):
-		main()
+	main()

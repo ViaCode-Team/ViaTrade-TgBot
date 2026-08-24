@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Protocol
 
 from pydantic import ValidationError
@@ -23,8 +22,7 @@ class NotificationHandler(Protocol):
 
 
 class NotificationPayloadError(ValueError):
-	def __init__(self) -> None:
-		super().__init__("Notification payload is invalid.")
+	"""The stream message payload does not match the declared notification type."""
 
 
 class ReminderNotificationHandler:
@@ -35,19 +33,18 @@ class ReminderNotificationHandler:
 		self, notification: NotificationEnvelope, delivery: NotificationDelivery
 	) -> None:
 		payload = self._parse_payload(notification)
-
 		instrument = f" ({payload.instrument_symbol})" if payload.instrument_symbol else ""
 		await delivery.send_text(notification.chat_id, f"Напоминание{instrument}:\n{payload.text}")
 
 	async def confirm_delivery(self, notification: NotificationEnvelope) -> None:
 		payload = self._parse_payload(notification)
 		await self._confirmation.confirm_reminder_delivery(
-			notification.user_id, payload.reminder_id
+			payload.reminder_id, notification.user_id
 		)
 
 	@staticmethod
 	def _parse_payload(notification: NotificationEnvelope) -> ReminderPayload:
 		try:
-			return ReminderPayload.model_validate_json(notification.payload)
-		except (ValidationError, json.JSONDecodeError) as exception:
+			return ReminderPayload.model_validate(notification.payload)
+		except ValidationError as exception:
 			raise NotificationPayloadError from exception

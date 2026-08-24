@@ -1,0 +1,80 @@
+asyncapi: 3.0.0
+info:
+  title: ViaTrade Telegram notification stream
+  version: 1.0.0
+  description: Each Redis Stream entry contains one message field with a JSON notification envelope for the Telegram bot.
+servers:
+  redis:
+    host: localhost:6379
+    protocol: redis
+channels:
+  telegramNotifications:
+    address: telegram:notifications
+    messages:
+      notification:
+        $ref: '#/components/messages/Notification'
+operations:
+  publishNotification:
+    action: send
+    channel:
+      $ref: '#/channels/telegramNotifications'
+components:
+  messages:
+    Notification:
+      name: notification
+      title: Telegram notification
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/NotificationMessage'
+  schemas:
+    NotificationMessage:
+      type: object
+      required:
+        - notificationId
+        - userId
+        - chatId
+        - payload
+        - createdAt
+        - type
+        - schemaVersion
+      properties:
+        notificationId:
+          type: string
+          example: reminder:42
+        userId:
+          type: integer
+          format: int32
+        chatId:
+          type: string
+          example: '123456789'
+        payload:
+          oneOf:
+            - $ref: '#/components/schemas/ReminderNotificationPayload'
+        createdAt:
+          type: string
+          format: date-time
+        type:
+          type: string
+          const: reminder
+        schemaVersion:
+          type: integer
+          const: 1
+    ReminderNotificationPayload:
+      type: object
+      required:
+        - reminderId
+        - text
+        - remindAt
+      properties:
+        reminderId:
+          type: integer
+          format: int32
+        text:
+          type: string
+        remindAt:
+          type: string
+          format: date-time
+        instrumentSymbol:
+          type:
+            - string
+            - 'null'

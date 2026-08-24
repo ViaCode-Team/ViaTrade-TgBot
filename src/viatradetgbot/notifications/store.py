@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, cast
+from collections.abc import Mapping
+from typing import Final
 from uuid import uuid4
 
 from redis.exceptions import ResponseError
 
-if TYPE_CHECKING:
-	from collections.abc import Awaitable, Mapping
-	from typing import Any, Final
-
-	from redis.asyncio import Redis
-
-	from viatradetgbot.config import Settings
+from viatradetgbot.notifications.contracts import (
+	NotificationStoreSettings,
+	RedisNotificationClient,
+	StreamClaimRequest,
+	StreamMessage,
+)
 
 DELIVERED_KEY_PREFIX: Final = "telegram:notifications:delivered:"
 LOCK_KEY_PREFIX: Final = "telegram:notifications:delivery-lock:"
@@ -24,11 +24,10 @@ end
 return 0
 """
 
-type StreamMessage = tuple[str, dict[str, str]]
-
-
 class NotificationStore:
-	def __init__(self, redis_client: Redis, settings: Settings) -> None:
+	def __init__(
+		self, redis_client: RedisNotificationClient, settings: NotificationStoreSettings
+	) -> None:
 		self._redis = redis_client
 		self._settings = settings
 		self._logger = logging.getLogger(self.__class__.__name__)
@@ -38,7 +37,7 @@ class NotificationStore:
 			await self._redis.xgroup_create(
 				name=self._settings.notification_stream,
 				groupname=self._settings.notification_consumer_group,
-				id="0-0",
+				start_id="0-0",
 				mkstream=True,
 			)
 		except ResponseError as exception:
@@ -57,12 +56,14 @@ class NotificationStore:
 
 	async def claim_pending_messages(self, start_id: str) -> tuple[str, list[StreamMessage]]:
 		next_id, messages, deleted_ids = await self._redis.xautoclaim(
-			name=self._settings.notification_stream,
-			groupname=self._settings.notification_consumer_group,
-			consumername=self._settings.notification_consumer_name,
-			min_idle_time=self._settings.notification_claim_idle_ms,
-			start_id=start_id,
-			count=self._settings.notification_read_count,
+			StreamClaimRequest(
+				stream=self._settings.notification_stream,
+				consumer_group=self._settings.notification_consumer_group,
+				consumer_name=self._settings.notification_consumer_name,
+				min_idle_time_ms=self._settings.notification_claim_idle_ms,
+				start_id=start_id,
+				count=self._settings.notification_read_count,
+			)
 		)
 		for message_id in deleted_ids:
 			self._logger.warning("Removed trimmed pending Redis message: message_id=%s", message_id)
@@ -98,26 +99,19 @@ class NotificationStore:
 		reason: str,
 		exception: Exception | None,
 	) -> None:
-		if exception is None:
-			self._logger.error(
-				"Discarding Redis notification: message_id=%s reason=%s", message_id, reason
-			)
-		else:
-			self._logger.error(
-				"Discarding Redis notification: message_id=%s reason=%s",
-				message_id,
-				reason,
-				exc_info=exception,
-			)
-
-		dead_letter: dict[Any, Any] = {
-			**fields,
-			"original_message_id": message_id,
-			"failure_reason": reason,
-		}
+		self._logger.error(
+			"Discarding Redis notification: message_id=%s reason=%s",
+			message_id,
+			reason,
+			exc_info=exception,
+		)
 		await self._redis.xadd(
 			f"{self._settings.notification_stream}{DEAD_LETTER_SUFFIX}",
-			dead_letter,
+			{
+				**fields,
+				"original_message_id": message_id,
+				"failure_reason": reason,
+			},
 		)
 		await self.ack(message_id)
 
@@ -129,4 +123,4 @@ class NotificationStore:
 		)
 
 	async def release_delivery_lock(self, lock_key: str, lock_value: str) -> None:
-		await cast("Awaitable[str]", self._redis.eval(RELEASE_LOCK_SCRIPT, 1, lock_key, lock_value))
+		await self._redis.eval(RELEASE_LOCK_SCRIPT, 1, lock_key, lock_value)

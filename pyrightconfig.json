@@ -1,6 +1,18 @@
 {
-  "include": ["src"],
-  "exclude": [".agent", ".agents", ".ai-factory", ".venv"],
+  "include": [
+    "src",
+    "tests"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.*",
+    ".agent",
+    ".agents",
+    ".ai-factory",
+    ".venv",
+    "**/gen"
+  ],
   "venvPath": ".",
   "venv": ".venv",
   "pythonVersion": "3.14",
