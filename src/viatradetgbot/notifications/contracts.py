@@ -49,13 +49,6 @@ class NotificationStoreSettings(Protocol):
 	def notification_deduplication_ttl_seconds(self) -> int: ...
 
 
-class NotificationConsumerSettings(NotificationStoreSettings, Protocol):
-	"""Settings required by the notification-consumer control loop."""
-
-	@property
-	def notification_recovery_interval_seconds(self) -> int: ...
-
-
 class RedisNotificationClient(Protocol):
 	"""Redis operations used by the notification store."""
 
@@ -77,9 +70,7 @@ class RedisNotificationClient(Protocol):
 
 	async def exists(self, key: str) -> int: ...
 
-	async def set(
-		self, key: str, value: str, *, nx: bool = False, ex: int
-	) -> bool | None: ...
+	async def set(self, key: str, value: str, *, nx: bool = False, ex: int) -> bool | None: ...
 
 	async def xadd(self, name: str, fields: Mapping[str, str]) -> str: ...
 

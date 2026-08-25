@@ -2,15 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from typing import TYPE_CHECKING, ClassVar
 
 from pydantic import ValidationError
 from redis.exceptions import RedisError
 
 from viatradetgbot.notifications.contracts import (
-	NotificationConsumerSettings,
 	NotificationStoreProtocol,
+	NotificationStoreSettings,
 )
 from viatradetgbot.notifications.delivery import NotificationRejectedError
 from viatradetgbot.notifications.handlers import NotificationHandler, NotificationPayloadError
@@ -32,7 +31,7 @@ class NotificationConsumer:
 	def __init__(
 		self,
 		store: NotificationStoreProtocol,
-		settings: NotificationConsumerSettings,
+		settings: NotificationStoreSettings,
 		delivery: NotificationDelivery,
 		handlers: Mapping[str, NotificationHandler],
 	) -> None:
@@ -43,7 +42,6 @@ class NotificationConsumer:
 		self._logger = logging.getLogger(self.__class__.__name__)
 		self._stopping = asyncio.Event()
 		self._is_started = False
-		self._next_recovery_at = 0.0
 
 	async def start(self) -> None:
 		if self._is_started:
@@ -72,7 +70,6 @@ class NotificationConsumer:
 
 		while not self._stopping.is_set():
 			try:
-				await self._recover_pending_if_due()
 				for message in await self._store.read_new_messages():
 					if self._stopping.is_set():
 						return
@@ -89,13 +86,11 @@ class NotificationConsumer:
 	async def stop(self) -> None:
 		self._stopping.set()
 
-	async def _recover_pending_if_due(self) -> None:
-		if time.monotonic() < self._next_recovery_at:
+	async def recover_pending_messages(self) -> None:
+		"""Claim and process messages left pending by an unavailable consumer."""
+		if self._stopping.is_set():
 			return
 
-		self._next_recovery_at = (
-			time.monotonic() + self._settings.notification_recovery_interval_seconds
-		)
 		start_id = "0-0"
 		while not self._stopping.is_set():
 			next_id, messages = await self._store.claim_pending_messages(start_id)

@@ -1,14 +1,10 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramAPIError
-
-if TYPE_CHECKING:
-	from aiogram import Bot
-	from aiogram.types import CallbackQuery, ErrorEvent, Message
+from aiogram.types import CallbackQuery, ErrorEvent, Message
 
 USER_ERROR_MESSAGE = "Что-то пошло не так. Пожалуйста, попробуйте ещё раз позже."
 

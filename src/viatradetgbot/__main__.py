@@ -13,8 +13,7 @@ from viatradetgbot.logging_config import configure_logging
 
 async def run_app(settings: Settings) -> None:
 	async with App(settings) as app:
-		with suppress(KeyboardInterrupt):
-			await app.run()
+		await app.run()
 
 
 def main() -> None:
@@ -22,11 +21,14 @@ def main() -> None:
 		settings = Settings()
 	except ValidationError:
 		logging.basicConfig(level=logging.ERROR)
+
 		logging.getLogger(__name__).exception("Bot configuration is invalid")
 		raise SystemExit(2) from None
 
 	configure_logging(settings)
-	asyncio.run(run_app(settings))
+
+	with suppress(KeyboardInterrupt):
+		asyncio.run(run_app(settings))
 
 
 if __name__ == "__main__":

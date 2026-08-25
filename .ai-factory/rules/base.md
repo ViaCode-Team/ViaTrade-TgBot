@@ -13,8 +13,8 @@
 ## Структура модулей
 
 - Исходный код расположен в `src/` layout; корневой пакет — `src/viatradetgbot/`.
-- `app.py` — composition root: он создаёт конкретные Redis-, HTTP- и Telegram-адаптеры,
-  передаёт их через конструкторы и управляет жизненным циклом ресурсов.
+- `app.py` — composition root: он управляет жизненным циклом приложения; `providers.py`
+  создаёт Redis-, HTTP- и Telegram-адаптеры в Dishka app-scope и финализирует ресурсы.
 - `bot/` содержит aiogram-обработчики, middleware и Telegram-адаптеры. Обработчики
   зависят от контрактов, а не от конкретных HTTP-клиентов.
 - `notifications/` содержит модели уведомлений, `Protocol`-контракты, consumer Redis

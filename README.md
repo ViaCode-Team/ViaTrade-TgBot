@@ -17,7 +17,9 @@ Redis consumer group с блокирующим ожиданием новых з�
 периодических запросов к backend. После успешной отправки в Telegram бот подтверждает
 доставку через `PUT /api/v1/internal/tgbot/reminders/{reminderId}/delivery` и
 подтверждает запись в Stream. Неподтверждённые сообщения возвращаются в обработку после
-тайм-аута, а сообщения с некорректным форматом переносятся в `<NOTIFICATION_STREAM>:dead-letter`.
+тайм-аута периодической задачей APScheduler, а сообщения с некорректным форматом
+переносятся в `<NOTIFICATION_STREAM>:dead-letter`. Dishka создаёт зависимости уровня
+приложения и внедряет контракт backend API прямо в aiogram-обработчик `/start`.
 
 Формат сообщений определяет [AsyncAPI-контракт](docs/notification-stream.asyncapi.yaml):
 каждая запись Stream содержит единственное поле `message`, значение которого — JSON

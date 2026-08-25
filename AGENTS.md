@@ -30,6 +30,7 @@ ViaTrade Telegram Bot — Python-сервис для привязки Telegram-�
 │   └── viatradetgbot/
 │       ├── __main__.py              # консольная точка входа
 │       ├── app.py                   # composition root и lifecycle приложения
+│       ├── providers.py             # Dishka-провайдеры и lifecycle внешних ресурсов
 │       ├── config.py                # типизированные настройки из .env
 │       ├── logging_config.py        # настройка стандартного logging
 │       ├── backend_api/gen/         # автогенерируемый клиент OpenAPI
@@ -63,6 +64,7 @@ ViaTrade Telegram Bot — Python-сервис для привязки Telegram-�
 |---|---|
 | `src/viatradetgbot/__main__.py` | Загружает настройки, настраивает логирование и запускает приложение. |
 | `src/viatradetgbot/app.py` | Собирает адаптеры, запускает consumer Redis Stream и управляет закрытием ресурсов. |
+| `src/viatradetgbot/providers.py` | Объявляет зависимости Dishka, ресурсы приложения и задачу APScheduler recovery pending-сообщений. |
 | `src/viatradetgbot/bot/bot.py` | Создаёт aiogram-бота, Dispatcher, middleware и обработчики. |
 | `src/viatradetgbot/scripts/generate_backend_api.py` | Генерирует клиент backend API из `swagger-tgbot.yaml`. |
 | `pyproject.toml` | Описывает пакет, версию Python, зависимости и команды `viatradetgbot` и `generate-api`. |
@@ -94,5 +96,7 @@ ViaTrade Telegram Bot — Python-сервис для привязки Telegram-�
 - Не добавляйте токены, пароли и другие секреты в исходный код или репозиторий.
 - Не редактируйте `src/viatradetgbot/backend_api/gen/` вручную: обновляйте
   `swagger-tgbot.yaml` и запускайте `uv run generate-api`.
+- Все типы в аннотациях aiogram handlers, которые оборачивает Dishka, импортируйте в
+  runtime, а не под `TYPE_CHECKING`: Dishka вызывает `typing.get_type_hints()` при startup.
 - После изменения Python-кода или конфигурации Ruff выполняйте `uv run ruff check --fix`
   и повторяйте проверку до чистого результата.

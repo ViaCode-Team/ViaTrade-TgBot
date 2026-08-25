@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
 from aiogram import Router
 from aiogram.filters import CommandStart
+from aiogram.filters.command import CommandObject
+from aiogram.types import Message
+from dishka.integrations.aiogram import FromDishka
 
-if TYPE_CHECKING:
-	from aiogram.filters.command import CommandObject
-	from aiogram.types import Message
-
-	from viatradetgbot.bot.telegram_links import TelegramAccountLinker
+from viatradetgbot.bot.telegram_links import TelegramAccountLinker
 
 router = Router(name=__name__)
 logger = logging.getLogger(__name__)
@@ -20,7 +18,7 @@ logger = logging.getLogger(__name__)
 async def handle_start_command(
 	message: Message,
 	command: CommandObject,
-	account_linker: TelegramAccountLinker,
+	account_linker: FromDishka[TelegramAccountLinker],
 ) -> None:
 	if message.from_user is None:
 		await message.answer("Привязка доступна только в личном чате с ботом.")

@@ -8,8 +8,9 @@
 подходит слоистая архитектура, адаптированная к пакетам текущего приложения, а не к
 абстрактным папкам `controllers/` и `services/`.
 
-`app.py` служит composition root: он создаёт конкретные зависимости и управляет их
-жизненным циклом. Входной слой находится в `bot/`; процесс доставки и его контракты — в
+`app.py` служит composition root: он запускает Dishka-контейнер и управляет жизненным
+циклом приложения. Конкретные зависимости и их финализация объявлены в `providers.py`.
+Входной слой находится в `bot/`; процесс доставки и его контракты — в
 `notifications/`; конкретные интеграции с Telegram, Redis и backend API расположены на
 внешней границе. Это позволяет тестировать процесс доставки с небольшими fake-объектами,
 не поднимая Telegram, Redis или HTTP-сервер.
@@ -27,6 +28,7 @@
 src/viatradetgbot/
 ├── __main__.py                     # запуск: настройки, logging, asyncio
 ├── app.py                           # composition root и lifecycle
+├── providers.py                     # Dishka-провайдеры и APScheduler job
 ├── config.py                        # конфигурация из окружения
 ├── logging_config.py                # общая настройка логирования
 ├── bot/                             # входной Telegram-слой
@@ -52,8 +54,8 @@ src/viatradetgbot/
 ## Правила зависимостей
 
 ```text
-__main__ → app (composition root)
-app → bot / notifications / integrations / Redis-клиент
+__main__ → app (composition root) → providers
+providers → bot / notifications / integrations / Redis-клиент
 bot.handlers → контракты application-слоя
 notifications.consumer → Protocol-контракты и обработчики уведомлений
 notifications.store → RedisNotificationClient (Protocol) → redis.asyncio
@@ -76,9 +78,9 @@ bot.notification_delivery → aiogram Bot
 
 1. `__main__.py` создаёт `Settings`, настраивает logging и открывает `App` как
    асинхронный контекстный менеджер.
-2. `App` создаёт Redis- и HTTP-адаптеры, Telegram-бота, `NotificationStore` и
-   `NotificationConsumer`, затем запускает consumer отдельной задачей.
-3. Aiogram передаёт `TelegramAccountLinker` в `/start`-обработчик; обработчик валидирует
+2. `App` получает зависимости app-scope из Dishka, запускает `AsyncIOScheduler` и
+   `NotificationConsumer` отдельной задачей. Провайдер планирует recovery pending-сообщений.
+3. Dishka передаёт `TelegramAccountLinker` в `/start`-обработчик; обработчик валидирует
    контекст чата, вызывает контракт и отображает пользователю результат.
 4. Consumer валидирует Stream-сообщение, берёт блокировку, выполняет дедупликацию,
    доставляет уведомление, подтверждает его в backend API и только затем делает `ack`.
@@ -139,7 +141,7 @@ class ReminderNotificationHandler:
 ## Организация существующего кода
 
 - **Новые возможности:** следуют правилам этого документа; новые интеграции получают
-  контракт и конкретный адаптер, а wiring остаётся в `App`.
+  контракт и конкретный адаптер, а wiring остаётся в провайдерах Dishka.
 - **Существующий код:** сохраняет текущие пакеты и имена. Не рефакторируйте несвязанные
   модули только ради переименования каталогов.
 - **Совместимость:** при расширении старого кода сначала добавляйте чистую границу через

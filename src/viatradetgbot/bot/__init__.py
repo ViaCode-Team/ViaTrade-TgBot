@@ -1,3 +1,3 @@
-from .bot import TelegramBot
+from .bot import create_bot, create_dispatcher
 
-__all__ = ("TelegramBot",)
+__all__ = ("create_bot", "create_dispatcher")
