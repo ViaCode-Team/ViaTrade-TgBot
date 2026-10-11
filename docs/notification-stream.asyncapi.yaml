@@ -2,7 +2,10 @@ asyncapi: 3.0.0
 info:
   title: ViaTrade Telegram notification stream
   version: 1.0.0
-  description: Each Redis Stream entry contains one message field with a JSON notification envelope for the Telegram bot.
+  description: >-
+    Redis Stream entries use either the backend's six string fields or one message
+    field containing a JSON notification envelope. The unversioned backend fields
+    are interpreted as schema version 1.
 servers:
   redis:
     host: localhost:6379
@@ -25,8 +28,45 @@ components:
       title: Telegram notification
       contentType: application/json
       payload:
-        $ref: '#/components/schemas/NotificationMessage'
+        $ref: '#/components/schemas/NotificationStreamEntry'
   schemas:
+    NotificationStreamEntry:
+      oneOf:
+        - $ref: '#/components/schemas/BackendStreamEntry'
+        - $ref: '#/components/schemas/EnvelopeStreamEntry'
+    BackendStreamEntry:
+      type: object
+      additionalProperties: false
+      required: [notification_id, type, user_id, chat_id, payload, created_at]
+      properties:
+        notification_id:
+          type: string
+          example: reminder:42
+        type:
+          type: string
+          const: reminder
+        user_id:
+          type: string
+          description: User identifier as a decimal int32 string.
+          example: '42'
+        chat_id:
+          type: string
+          example: '123456789'
+        payload:
+          type: string
+          description: JSON-encoded ReminderNotificationPayload.
+          example: '{"reminderId":42,"text":"Buy","remindAt":"2026-10-10T14:25:00Z","instrumentTicker":"AAPL"}'
+        created_at:
+          type: string
+          format: date-time
+    EnvelopeStreamEntry:
+      type: object
+      additionalProperties: false
+      required: [message]
+      properties:
+        message:
+          type: string
+          description: JSON-encoded NotificationMessage with schemaVersion 1.
     NotificationMessage:
       type: object
       required:
@@ -74,7 +114,8 @@ components:
         remindAt:
           type: string
           format: date-time
-        instrumentSymbol:
+        instrumentTicker:
+          description: Instrument label published by the backend.
           type:
             - string
             - 'null'

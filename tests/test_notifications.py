@@ -55,6 +55,26 @@ def _stream_message(**overrides: object) -> dict[str, str]:
 	return {"message": json.dumps(message)}
 
 
+def _backend_stream_message(**overrides: str) -> dict[str, str]:
+	fields = {
+		"notification_id": "reminder:7",
+		"type": "reminder",
+		"user_id": "42",
+		"chat_id": "123",
+		"payload": json.dumps(
+			{
+				"reminderId": 7,
+				"text": "Buy",
+				"remindAt": "2026-10-10T14:25:00Z",
+				"instrumentTicker": "AAPL",
+			}
+		),
+		"created_at": "2026-10-10T14:25:26.1490000+00:00",
+	}
+	fields.update(overrides)
+	return fields
+
+
 class FakeRedis:
 	def __init__(self) -> None:
 		self.xreadgroup_kwargs: dict[str, object] | None = None
@@ -230,6 +250,95 @@ class TelegramNotificationDeliveryTests(unittest.IsolatedAsyncioTestCase):
 
 
 class NotificationConsumerTests(unittest.IsolatedAsyncioTestCase):
+	async def test_delivers_stream_fields_published_by_backend(self) -> None:
+		store = FakeStore()
+		consumer = NotificationConsumer(
+			store=store,
+			settings=NotificationTestSettings(),
+			delivery=FakeDelivery(store.events),
+			handlers={"reminder": ReminderNotificationHandler(FakeConfirmation(store.events))},
+		)
+		await consumer.process_message("1-0", _backend_stream_message())
+
+		self.assertEqual(
+			store.events,
+			[
+				"lock:reminder:7",
+				"dedup:reminder:7",
+				"telegram:123:Напоминание (AAPL):\nBuy",
+				"sent:reminder:7",
+				"confirm:7:42",
+				"ack:1-0",
+				"unlock:lock-key:lock-value",
+			],
+		)
+
+	async def test_dead_letters_invalid_backend_stream_fields(self) -> None:
+		missing_field = _backend_stream_message()
+		del missing_field["chat_id"]
+		cases = [
+			missing_field,
+			_backend_stream_message(message=_stream_message()["message"]),
+			_backend_stream_message(schema_version="2"),
+			_backend_stream_message(payload="not JSON"),
+			_backend_stream_message(payload="[]"),
+			_backend_stream_message(user_id="invalid"),
+			_backend_stream_message(user_id=str(2**31)),
+			_backend_stream_message(created_at="invalid"),
+			_backend_stream_message(type="unknown"),
+		]
+		for fields in cases:
+			with self.subTest(fields=fields):
+				store = FakeStore()
+				consumer = NotificationConsumer(
+					store=store,
+					settings=NotificationTestSettings(),
+					delivery=FakeDelivery(store.events),
+					handlers={
+						"reminder": ReminderNotificationHandler(FakeConfirmation(store.events))
+					},
+				)
+
+				await consumer.process_message("1-0", fields)
+
+				self.assertEqual(store.events, ["dead-letter:1-0:invalid_envelope"])
+
+	async def test_backend_reminder_validates_payload_and_instrument_ticker(self) -> None:
+		cases = [
+			({"instrumentTicker": "AAPL"}, "telegram:123:Напоминание (AAPL):\nBuy"),
+			({"instrumentTicker": None}, "telegram:123:Напоминание:\nBuy"),
+			({}, "telegram:123:Напоминание:\nBuy"),
+			({"reminderId": "invalid"}, "dead-letter:1-0:invalid_payload"),
+			({"instrumentTicker": 123}, "dead-letter:1-0:invalid_payload"),
+		]
+		for overrides, expected_event in cases:
+			with self.subTest(overrides=overrides):
+				store = FakeStore()
+				consumer = NotificationConsumer(
+					store=store,
+					settings=NotificationTestSettings(),
+					delivery=FakeDelivery(store.events),
+					handlers={
+						"reminder": ReminderNotificationHandler(FakeConfirmation(store.events))
+					},
+				)
+				payload = json.loads(_backend_stream_message()["payload"])
+				del payload["instrumentTicker"]
+				payload.update(overrides)
+
+				await consumer.process_message(
+					"1-0", _backend_stream_message(payload=json.dumps(payload))
+				)
+
+				self.assertIn(expected_event, store.events)
+				self.assertEqual(store.events[-1], "unlock:lock-key:lock-value")
+				if expected_event.startswith("dead-letter:"):
+					self.assertFalse(any(event.startswith("telegram:") for event in store.events))
+					self.assertNotIn("ack:1-0", store.events)
+				else:
+					self.assertIn("confirm:7:42", store.events)
+					self.assertIn("ack:1-0", store.events)
+
 	async def test_retries_consumer_group_initialization_after_redis_error(self) -> None:
 		store = FlakyStartupStore()
 		consumer = NotificationConsumer(

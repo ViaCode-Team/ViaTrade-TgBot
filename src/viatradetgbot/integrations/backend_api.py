@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import ssl
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Self, cast
 
@@ -47,6 +48,11 @@ class BackendApi:
 			prefix="",
 			auth_header_name="Service-Password",
 			timeout=httpx.Timeout(settings.backend_request_timeout_seconds),
+			verify_ssl=(
+				ssl.create_default_context(cafile=str(settings.backend_ca_bundle))
+				if settings.backend_ca_bundle is not None
+				else True
+			),
 		)
 
 	async def link_telegram(self, token: str, telegram_id: str) -> TelegramLinkResult:

@@ -33,7 +33,7 @@ class ReminderNotificationHandler:
 		self, notification: NotificationEnvelope, delivery: NotificationDelivery
 	) -> None:
 		payload = self._parse_payload(notification)
-		instrument = f" ({payload.instrument_symbol})" if payload.instrument_symbol else ""
+		instrument = f" ({payload.instrument_ticker})" if payload.instrument_ticker else ""
 		await delivery.send_text(notification.chat_id, f"Напоминание{instrument}:\n{payload.text}")
 
 	async def confirm_delivery(self, notification: NotificationEnvelope) -> None:

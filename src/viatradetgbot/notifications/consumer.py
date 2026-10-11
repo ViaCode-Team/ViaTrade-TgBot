@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from typing import TYPE_CHECKING, ClassVar
 
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
 
 
 class InvalidStreamMessageError(ValueError):
-	"""A Redis Stream entry does not contain the declared message field."""
+	"""A Redis Stream entry does not match a supported field layout."""
 
 
 class NotificationConsumer:
@@ -104,9 +105,7 @@ class NotificationConsumer:
 	async def process_message(self, message_id: str, fields: Mapping[str, str]) -> None:
 		"""Deliver and acknowledge one notification stream message."""
 		try:
-			notification = NotificationEnvelope.model_validate_json(
-				self._get_notification_message(fields)
-			)
+			notification = self._parse_notification(fields)
 		except (ValidationError, ValueError) as exception:
 			await self._store.dead_letter_and_ack(message_id, fields, "invalid_envelope", exception)
 			return
@@ -153,10 +152,29 @@ class NotificationConsumer:
 			await self._store.release_delivery_lock(*lock)
 
 	@staticmethod
-	def _get_notification_message(fields: Mapping[str, str]) -> str:
-		if set(fields) != {"message"}:
-			raise InvalidStreamMessageError
-		return fields["message"]
+	def _parse_notification(fields: Mapping[str, str]) -> NotificationEnvelope:
+		if set(fields) == {"message"}:
+			return NotificationEnvelope.model_validate_json(fields["message"])
+		if set(fields) == {
+			"notification_id",
+			"type",
+			"user_id",
+			"chat_id",
+			"payload",
+			"created_at",
+		}:
+			return NotificationEnvelope.model_validate(
+				{
+					"notificationId": fields["notification_id"],
+					"type": fields["type"],
+					"userId": fields["user_id"],
+					"chatId": fields["chat_id"],
+					"payload": json.loads(fields["payload"]),
+					"createdAt": fields["created_at"],
+					"schemaVersion": 1,
+				}
+			)
+		raise InvalidStreamMessageError
 
 	async def _wait_before_retry(self) -> None:
 		try:

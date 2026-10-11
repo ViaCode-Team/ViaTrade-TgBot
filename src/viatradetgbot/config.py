@@ -3,7 +3,7 @@ from __future__ import annotations
 import socket
 from typing import Literal
 
-from pydantic import Field, HttpUrl, RedisDsn, SecretStr
+from pydantic import Field, FilePath, HttpUrl, RedisDsn, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,6 +27,7 @@ class Settings(BaseSettings):
 	)
 
 	backend_request_timeout_seconds: int = Field(default=15, ge=1, le=60)
+	backend_ca_bundle: FilePath | None = None
 	telegram_message_rate_limit_seconds: float = Field(default=1, gt=0, le=60)
 	redis_url: RedisDsn = RedisDsn("redis://127.0.0.1:6379/1")
 	notification_stream: str = Field(default="telegram:notifications", min_length=1)
