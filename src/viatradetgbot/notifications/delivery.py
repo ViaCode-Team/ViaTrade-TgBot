@@ -1,10 +1,20 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Protocol
 
 
 class NotificationDelivery(Protocol):
-	async def send_text(self, chat_id: str, text: str) -> None: ...
+	async def send_text(  # noqa: PLR0913 — optional notification presentation fields.
+		self,
+		chat_id: str,
+		text: str,
+		*,
+		heading: str | None = None,
+		instrument_ticker: str | None = None,
+		instrument_url: str | None = None,
+		remind_at: datetime | None = None,
+	) -> None: ...
 
 
 class ReminderDeliveryConfirmation(Protocol):

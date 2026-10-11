@@ -2,9 +2,18 @@ from __future__ import annotations
 
 import socket
 from typing import Literal
+from urllib.parse import urlsplit
 
-from pydantic import Field, FilePath, HttpUrl, RedisDsn, SecretStr
+from pydantic import Field, FilePath, HttpUrl, RedisDsn, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class WebBaseUrlError(ValueError):
+	def __init__(self) -> None:
+		super().__init__(
+			"VIATRADE_WEB_BASE_URL must be an absolute HTTP(S) URL "
+			"without userinfo, query or fragment"
+		)
 
 
 class Settings(BaseSettings):
@@ -12,6 +21,7 @@ class Settings(BaseSettings):
 		env_file=".env",
 		env_file_encoding="utf-8",
 		extra="ignore",
+		hide_input_in_errors=True,
 	)
 
 	telegram_bot_token: SecretStr = Field(
@@ -20,6 +30,7 @@ class Settings(BaseSettings):
 		validate_default=True,
 	)
 	backend_base_url: HttpUrl = HttpUrl("http://127.0.0.1:8080")
+	viatrade_web_base_url: HttpUrl | None = None
 	backend_service_password: SecretStr = Field(
 		default_factory=lambda: SecretStr(""),
 		min_length=1,
@@ -41,3 +52,23 @@ class Settings(BaseSettings):
 	notification_deduplication_ttl_seconds: int = Field(default=604800, ge=60)
 	notification_shutdown_grace_seconds: int = Field(default=90, ge=10, le=600)
 	log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+
+	@field_validator("viatrade_web_base_url", mode="before")
+	@classmethod
+	def validate_web_base_url(cls, value: object) -> object:
+		if value == "":
+			return None
+		if isinstance(value, (str, HttpUrl)):
+			raw_url = str(value)
+			parts = urlsplit(raw_url)
+			if (
+				not raw_url.lower().startswith(("http://", "https://"))
+				or not parts.hostname
+				or "@" in parts.netloc
+				or "?" in raw_url
+				or "#" in raw_url
+				or "\\" in raw_url
+				or any(character.isspace() for character in raw_url)
+			):
+				raise WebBaseUrlError
+		return value

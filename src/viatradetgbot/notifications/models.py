@@ -29,3 +29,4 @@ class ReminderPayload(BaseModel):
 	text: str
 	remind_at: datetime
 	instrument_ticker: str | None = None
+	instrument_id: int | None = Field(default=None, strict=True, ge=1, le=INT32_MAX)

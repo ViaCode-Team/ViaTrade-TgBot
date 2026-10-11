@@ -55,7 +55,7 @@ components:
         payload:
           type: string
           description: JSON-encoded ReminderNotificationPayload.
-          example: '{"reminderId":42,"text":"Buy","remindAt":"2026-10-10T14:25:00Z","instrumentTicker":"AAPL"}'
+          example: '{"reminderId":42,"text":"Buy","remindAt":"2026-10-10T14:25:00Z","instrumentTicker":"AAPL","instrumentId":123}'
         created_at:
           type: string
           format: date-time
@@ -101,6 +101,20 @@ components:
           const: 1
     ReminderNotificationPayload:
       type: object
+      description: >-
+        Additive schema version 1 payload. Missing or null instrumentId preserves
+        delivery without an instrument link. A valid ID enables a clickable instrument ticker
+        only when the bot has VIATRADE_WEB_BASE_URL configured. The backend sends
+        the ID, never a public URL. Invalid IDs follow the invalid_payload DLQ policy.
+        Reminders place heading, colon, and ticker on the first line. An italic scheduled
+        date and time line follows, then body text without blank separators. Heading and
+        ticker are bold. The date comes from remindAt and is displayed in Moscow time
+        (UTC+3), labelled MSK; offset-less legacy values are interpreted as UTC.
+        Body text whitespace and line breaks are preserved; ticker whitespace is collapsed
+        to single spaces. Formatting uses Telegram entities without HTML parsing or inline buttons.
+        If Telegram explicitly rejects the text-link URL, the bot retries the rejected
+        chunk once without text_link, preserving text and bold formatting; successful
+        delivery is confirmed normally.
       required:
         - reminderId
         - text
@@ -112,6 +126,7 @@ components:
         text:
           type: string
         remindAt:
+          description: User-scheduled reminder instant, published in UTC by the backend.
           type: string
           format: date-time
         instrumentTicker:
@@ -119,3 +134,12 @@ components:
           type:
             - string
             - 'null'
+        instrumentId:
+          description: Stable instrument ID used for the website stocks/{id} route.
+          type:
+            - integer
+            - 'null'
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+          example: 123

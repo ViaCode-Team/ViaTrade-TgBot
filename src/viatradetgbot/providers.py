@@ -69,8 +69,10 @@ class AppProvider(Provider):
 		return NotificationStore(RedisNotificationClientAdapter(redis), settings)
 
 	@provide
-	def reminder_handler(self, backend_api: BackendApi) -> ReminderNotificationHandler:
-		return ReminderNotificationHandler(backend_api)
+	def reminder_handler(
+		self, backend_api: BackendApi, settings: Settings
+	) -> ReminderNotificationHandler:
+		return ReminderNotificationHandler(backend_api, web_base_url=settings.viatrade_web_base_url)
 
 	@provide
 	def notification_handlers(
